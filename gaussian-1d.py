@@ -8,16 +8,18 @@ https://arxiv.org/abs/1606.03498.
 
 Options:
     -h, --hidden-size=<int>         The size of the hidden laye [default: 4]
+
     -n, --num-steps=<int>           The number of training steps [default: 5000]
     -b, --batch-size=<int>          The batch size [default: 8]
-
     --minibatch                     Boolean flag to indicate minibatches
+
     --log-every=<int>               Print loss every this many steps
                                     [default: 10]
+
     --anim-path=<str>               Path to the output animation file
-    --anim-every=<int>              Save every n-th frame for animation
-    --seed=<int>                    Random seed
-                                    [default: 42]
+    --anim-every=<int>              Save every n-th frame for animation [default: 1]
+
+    --seed=<int>                    Random seed [default: 42]
 '''
 import matplotlib.pyplot as plt
 import numpy as np
@@ -94,21 +96,12 @@ class GAN(object):
         # We have to create two copies of the discriminator network that
         # share parameters, due to the fact that you cannot use the same net
         # with diffrent inputs in Tensorflow
-
-        # samples from the true distribution
         self.x = tf.placeholder(tf.float32, shape=(params.batch_size, 1))
         with tf.variable_scope('D'):
-            self.D1 = discriminator(
-                self.x,
-                params.hidden_size,
-                params.minibatch)
+            self.D1 = discriminator(self.x, params.hidden_size, params.minibatch)
 
-        # samples from the generator
-        with tf.variable_scope('G'):
-            self.D2 = discriminator(
-                self.G,
-                params.hidden_size,
-                params.minibatch)
+        with tf.variable_scope('D', reuse=True):
+            self.D2 = discriminator(self.G, params.hidden_size, params.minibatch)
 
         # define the loss for the discriminator and generator networks
         self.loss_d = tf.reduce_mean(-log(self.D1) - log(1 - self.D2))
