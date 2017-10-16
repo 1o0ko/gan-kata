@@ -2,7 +2,7 @@ import numpy as np
 
 
 class Gaussian(object):
-    def __init__(self, mu, sigma):
+    def __init__(self, mu=4, sigma=0.5):
         self.mu = mu
         self.sigma = sigma
 

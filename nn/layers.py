@@ -1,5 +1,6 @@
 import tensorflow as tf
 
+
 def linear(input_, output_dim, scope=None, stddev=1.0):
     ''' affine transformation of the input '''
     with tf.variable_scope(scope or 'linear'):

@@ -1,28 +1,23 @@
 '''
-1D Gaussian distribution generation based on (http://blog.aylien.com/introduction-generative-adversarial-networks-code-tensorflow)
+Usage: gaussian-1d [options]
 
+1D Gaussian distribution generation based on (http://blog.aylien.com/introduction-generative-adversarial-networks-code-tensorflow)
 
 The minibatch discrimination technique is taken from Tim Salimans et. al.:
 https://arxiv.org/abs/1606.03498.
 
-Usage: gaussian-1d [options]
-
 Options:
-	--num-steps=<int>		The number of training steps
-					[default: 5000]
-	--hidden-size=<int>		The size of the hidden layer
-					[default: 4]
-        --batch-size=<int>              The batch size
-                                        [default: 8]
-        --minibatch                     Boolean flag to indicate minibatches
-        --log-every=<int>               Print loss every this many steps
-                                        [default: 10]
+    -h, --hidden-size=<int>         The size of the hidden laye [default: 4]
+    -n, --num-steps=<int>           The number of training steps [default: 5000]
+    -b, --batch-size=<int>          The batch size [default: 8]
 
-        --anim-path=<str>               Path to the output animation file
-        --anim-every=<int>              Save every n-th frame for animation
-
-        --seed=<int>                    Random seed
-                                        [default: 42]
+    --minibatch                     Boolean flag to indicate minibatches
+    --log-every=<int>               Print loss every this many steps
+                                    [default: 10]
+    --anim-path=<str>               Path to the output animation file
+    --anim-every=<int>              Save every n-th frame for animation
+    --seed=<int>                    Random seed
+                                    [default: 42]
 '''
 import matplotlib.pyplot as plt
 import numpy as np
@@ -30,10 +25,10 @@ import seaborn as sns
 import tensorflow as tf
 
 from matplotlib import animation
+from typeopt import Arguments
 
 from data.distributions import Gaussian, Noise
 from nn.layers import linear, minibatch
-
 
 
 
@@ -109,7 +104,7 @@ class GAN(object):
                 params.minibatch)
 
         # samples from the generator
-        with tf.variable_scope('D'):
+        with tf.variable_scope('G'):
             self.D2 = discriminator(
                 self.G,
                 params.hidden_size,
@@ -164,6 +159,21 @@ def train(model, data, gen, params):
             samps = samples(model, session, data, gen.range, params.batch_size)
             plot_distributions(samps, gen.range)
 
+def samples(
+    model,
+    session,
+    data,
+    sample_range,
+    batch_size,
+    num_points=10000,
+    num_bins=100):
+    '''
+    Return a tuple (db, pd, pg), where db is the current decision
+    boundary, pd is a histogram of samples from the data distribution,
+    and pg is a histogram of generated samples.
+    '''
+    xs = np.linspace(-sample_range, sample_range, num_points)
+    bins = np.linspace(-sample_range, sample_range, num_bins)
     # decision boundary
     db = np.zeros((num_points, 1))
     for i in range(num_points // batch_size):
@@ -279,5 +289,4 @@ def main(args):
 
 if __name__ == '__main__':
     args = Arguments(__doc__)
-    print(args)
     main(args)
