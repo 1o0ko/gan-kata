@@ -16,7 +16,7 @@ Options:
     --log-every=<int>               Print loss every this many steps
                                     [default: 10]
 
-    --anim-path=<str>               Path to the output animation file
+    --anim-path=<str>               Full path to the output animation file
     --anim-every=<int>              Save every n-th frame for animation [default: 1]
 
     --seed=<int>                    Random seed [default: 42]
