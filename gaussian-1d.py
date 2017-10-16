@@ -4,6 +4,25 @@
 
 The minibatch discrimination technique is taken from Tim Salimans et. al.:
 https://arxiv.org/abs/1606.03498.
+
+Usage: gaussian-1d [options]
+
+Options:
+	--num-steps=<int>		The number of training steps
+					[default: 5000]
+	--hidden-size=<int>		The size of the hidden layer
+					[default: 4]
+        --batch-size=<int>              The batch size
+                                        [default: 8]
+        --minibatch                     Boolean flag to indicate minibatches
+        --log-every=<int>               Print loss every this many steps
+                                        [default: 10]
+
+        --anim-path=<str>               Path to the output animation file
+        --anim-every=<int>              Save every n-th frame for animation
+
+        --seed=<int>                    Random seed
+                                        [default: 42]
 '''
 import matplotlib.pyplot as plt
 import numpy as np
@@ -16,11 +35,6 @@ from data.distributions import Gaussian, Noise
 from nn.layers import linear, minibatch
 
 
-def setup(seed=42):
-    ''' sets up the experiment '''
-    sns.set(color_codes=True)
-    np.random.seed(seed)
-    tf.set_random_seed(seed)
 
 
 def generator(input_, hidden_size):
@@ -121,13 +135,149 @@ def train(model, data, gen, params):
         tf.local_variables_initializer().run()
         tf.global_variables_initializer().run()
 
-        for step in range(1, params.num_steps):
-    pass
+        for step in range(1, params.num_steps + 1):
+            # update the discriminator
+            x = data.sample(params.batch_size)
+            z = gen.sample(params.batch_size)
+            loss_d, _ = session.run([model.loss_d, model.opt_d], {
+                model.x: np.reshape(x, (params.batch_size, 1)),
+                model.z: np.reshape(z, (params.batch_size, 1))
+            })
+
+            # update the generator
+            z = gen.sample(params.batch_size)
+            loss_g, _ = session.run([model.loss_g, model.opt_g], {
+                model.z: np.reshape(z, (params.batch_size, 1))
+            })
+
+            if step % params.log_every == 0:
+                print('{}: {:.4f}\t{:.4f}'.format(step, loss_d, loss_g))
+
+            if params.anim_path and (step % params.anim_every == 0):
+                anim_frames.append(
+                    samples(model, session, data, gen.range, params.batch_size)
+                )
+
+        if params.anim_path:
+            save_animation(anim_frames, params.anim_path, gen.range)
+        else:
+            samps = samples(model, session, data, gen.range, params.batch_size)
+            plot_distributions(samps, gen.range)
+
+    # decision boundary
+    db = np.zeros((num_points, 1))
+    for i in range(num_points // batch_size):
+        db[batch_size * i:batch_size * (i + 1)] = session.run(
+            model.D1,
+            {
+                model.x: np.reshape(
+                    xs[batch_size * i:batch_size * (i + 1)],
+                    (batch_size, 1)
+                )
+            }
+        )
+
+    # data distribution
+    d = data.sample(num_points)
+    pd, _ = np.histogram(d, bins=bins, density=True)
+
+    # generated samples
+    zs = np.linspace(-sample_range, sample_range, num_points)
+    g = np.zeros((num_points, 1))
+    for i in range(num_points // batch_size):
+        g[batch_size * i:batch_size * (i + 1)] = session.run(
+            model.G,
+            {
+                model.z: np.reshape(
+                    zs[batch_size * i:batch_size * (i + 1)],
+                    (batch_size, 1)
+                )
+            }
+        )
+    pg, _ = np.histogram(g, bins=bins, density=True)
+
+    return db, pd, pg
+
+
+def plot_distributions(samps, sample_range):
+    db, pd, pg = samps
+    db_x = np.linspace(-sample_range, sample_range, len(db))
+    p_x = np.linspace(-sample_range, sample_range, len(pd))
+    f, ax = plt.subplots(1)
+    ax.plot(db_x, db, label='decision boundary')
+    ax.set_ylim(0, 1)
+    plt.plot(p_x, pd, label='real data')
+    plt.plot(p_x, pg, label='generated data')
+    plt.title('1D Generative Adversarial Network')
+    plt.xlabel('Data values')
+    plt.ylabel('Probability density')
+    plt.legend()
+    plt.show()
+
+
+def save_animation(anim_frames, anim_path, sample_range):
+    f, ax = plt.subplots(figsize=(6, 4))
+    f.suptitle('1D Generative Adversarial Network', fontsize=15)
+    plt.xlabel('Data values')
+    plt.ylabel('Probability density')
+    ax.set_xlim(-6, 6)
+    ax.set_ylim(0, 1.4)
+    line_db, = ax.plot([], [], label='decision boundary')
+    line_pd, = ax.plot([], [], label='real data')
+    line_pg, = ax.plot([], [], label='generated data')
+    frame_number = ax.text(
+        0.02,
+        0.95,
+        '',
+        horizontalalignment='left',
+        verticalalignment='top',
+        transform=ax.transAxes
+    )
+    ax.legend()
+
+    db, pd, _ = anim_frames[0]
+    db_x = np.linspace(-sample_range, sample_range, len(db))
+    p_x = np.linspace(-sample_range, sample_range, len(pd))
+
+    def init():
+        line_db.set_data([], [])
+        line_pd.set_data([], [])
+        line_pg.set_data([], [])
+        frame_number.set_text('')
+        return (line_db, line_pd, line_pg, frame_number)
+
+    def animate(i):
+        frame_number.set_text(
+            'Frame: {}/{}'.format(i, len(anim_frames))
+        )
+        db, pd, pg = anim_frames[i]
+        line_db.set_data(db_x, db)
+        line_pd.set_data(p_x, pd)
+        line_pg.set_data(p_x, pg)
+        return (line_db, line_pd, line_pg, frame_number)
+
+    anim = animation.FuncAnimation(
+        f,
+        animate,
+        init_func=init,
+        frames=len(anim_frames),
+        blit=True
+    )
+    anim.save(anim_path, fps=30, extra_args=['-vcodec', 'libx264'])
+
 
 def main(args):
+    # some setup
+    sns.set(color_codes=True)
+    np.random.seed(args.seed)
+    tf.set_random_seed(args.seed)
+
+    # train !!
     model = GAN(args)
     train(model, Gaussian(), Noise(range_=8), args)
 
 
 if __name__ == '__main__':
-    setup()
+    args = Arguments(__doc__)
+    print(args)
+    main(args)
