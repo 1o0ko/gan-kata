@@ -14,10 +14,10 @@ class Gaussian(object):
 
 class Noise(object):
     def __init__(self, range_, scale=0.01):
-        self.range_ = range_
+        self.range = range_
         self.scale = scale
 
     def sample(self, N):
-        sample = np.linspace(-self.range_, self.range_, N)
+        sample = np.linspace(-self.range, self.range, N)
         sample += np.random.random(N) * self.scale
         return sample
